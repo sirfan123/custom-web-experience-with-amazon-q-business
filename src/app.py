@@ -13,8 +13,8 @@ utils.retrieve_config_from_agent()
 if "aws_credentials" not in st.session_state:
     st.session_state.aws_credentials = None
 
-st.set_page_config(page_title="Amazon Q Business Custom UI") #HTML title
-st.title("Amazon Q Business Custom UI") #page title
+st.set_page_config(page_title="ConnectiveRx") #HTML title
+st.title("Case manager chatbot") #page title
 
 # Define a function to clear the chat history
 def clear_chat_history():
@@ -110,6 +110,17 @@ else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.write(prompt)
+        # Generate the engineered prompt
+        engineered_prompt = f"""
+        Take the input from '{prompt}' and generate a response based on:
+
+        1. Is there a specific program being referenced: <identify program> If so, gather relevant chunks talking about this.
+        2. What the key request is: <main query>, our main goal is a clear concise response to this leveraging the other steps.
+        3. If the response needs a step-by-step guide: <step by step?> Add this to the response.
+
+        Remember, You are a chatbot that will improve case managers' workflow within the organization as they interact with clients. Instead of searching through a lot of documentation to answer a client's question, they will simply ask you to find the answer to said question by searching your knowledge base and providing a concise response.
+        """
+
 
 
     # If the last message is from the user, generate a response from the Q_backend
@@ -117,7 +128,7 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 placeholder = st.empty()
-                response = utils.get_queue_chain(prompt,st.session_state["conversationId"],
+                response = utils.get_queue_chain(engineered_prompt,st.session_state["conversationId"],
                                                  st.session_state["parentMessageId"],
                                                  st.session_state["idc_jwt_token"]["idToken"])
                 if "references" in response:
