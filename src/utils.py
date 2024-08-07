@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import os
 
@@ -7,7 +8,7 @@ import jwt
 import streamlit as st
 import urllib3
 from streamlit_oauth import OAuth2Component
-
+import httpx
 logger = logging.getLogger()
 
 # Read the configuration file
@@ -31,22 +32,30 @@ def retrieve_config_from_agent():
         f"http://localhost:2772/applications/{APPCONFIG_APP_NAME}/environments/{APPCONFIG_ENV_NAME}/configurations/{APPCONFIG_CONF_NAME}",
     ).json()
     IAM_ROLE = config["IamRoleArn"]
+    print("IAM ROLE: ", IAM_ROLE)
     REGION = config["Region"]
     IDC_APPLICATION_ID = config["IdcApplicationArn"]
+    print("IDCAPP: ", IDC_APPLICATION_ID)
     AMAZON_Q_APP_ID = config["AmazonQAppId"]
     OAUTH_CONFIG = config["OAuthConfig"]
-
+    print(f"OAUTH_CONFIG: {OAUTH_CONFIG}")
 
 def configure_oauth_component():
     """
     Configure the OAuth2 component for Cognito
     """
     cognito_domain = OAUTH_CONFIG["CognitoDomain"]
+    print("Cognito Domain: ", cognito_domain)
     authorize_url = f"https://{cognito_domain}/oauth2/authorize"
+    print("Authorize URL: ", authorize_url)
     token_url = f"https://{cognito_domain}/oauth2/token"
+    print("Token URL: ", token_url)
     refresh_token_url = f"https://{cognito_domain}/oauth2/token"
+    print("Refresh: ", refresh_iam_oidc_token)
     revoke_token_url = f"https://{cognito_domain}/oauth2/revoke"
+    print("Revoke token: ", revoke_token_url)
     client_id = OAUTH_CONFIG["ClientId"]
+    print("Client ID: ", client_id)
     return OAuth2Component(
         client_id, None, authorize_url, token_url, refresh_token_url, revoke_token_url
     )
@@ -68,22 +77,54 @@ def get_iam_oidc_token(id_token):
     """
     Get the IAM OIDC token using the ID token retrieved from Cognito
     """
-    client = boto3.client("sso-oidc", region_name=REGION)
+    sts_client = boto3.client('sts', region_name=REGION)
+    assumed_role = sts_client.assume_role(
+        RoleArn='arn:aws:iam::084067650016:role/Qbusiness-customUI-EC2ServiceRole-WsCFbOBaOR6h',  # Replace with your QServiceRole ARN
+        RoleSessionName="EC2ServiceRoleSession"
+    )
+    credentials = assumed_role['Credentials']
+
+     # Create an SSO OIDC client using the assumed role credentials
+    client = boto3.client(
+        "sso-oidc",
+        region_name=REGION,
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken']
+    )
+
+    #client = boto3.client("sso-oidc", region_name=REGION)
     response = client.create_token_with_iam(
         clientId=IDC_APPLICATION_ID,
         grantType="urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion=id_token,
+        assertion=id_token
     )
+    logger.info("Successfully obtained IAM OIDC token.")
+    print("Token: ", response)
     return response
-
 
 def assume_role_with_token(iam_token):
     """
     Assume IAM role with the IAM OIDC idToken
     """
+    sts_client = boto3.client('sts', region_name=REGION)
+    assumed_role = sts_client.assume_role(
+        RoleArn='arn:aws:iam::084067650016:role/Qbusiness-customUI-EC2ServiceRole-WsCFbOBaOR6h',  # Replace with your QServiceRole ARN
+        RoleSessionName="EC2ServiceRoleSession"
+    )
+    credentials = assumed_role['Credentials']
+
+     # Create an SSO OIDC client using the assumed role credentials
+    client = boto3.client(
+        "sts",
+        region_name=REGION,
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken']
+    )
     decoded_token = jwt.decode(iam_token, options={"verify_signature": False})
-    sts_client = boto3.client("sts", region_name=REGION)
-    response = sts_client.assume_role(
+    #sts_client = boto3.client("sts", region_name=REGION)
+    response = client.assume_role(
         RoleArn=IAM_ROLE,
         RoleSessionName="qapp",
         ProvidedContexts=[
@@ -111,7 +152,10 @@ def get_qclient(idc_id_token: str):
         aws_secret_access_key=st.session_state.aws_credentials["SecretAccessKey"],
         aws_session_token=st.session_state.aws_credentials["SessionToken"],
     )
-    amazon_q = session.client("qbusiness", REGION)
+    stsDebug = session.client("sts", REGION)
+    debug = stsDebug.get_caller_identity()
+    print("STS: ", debug)
+    amazon_q = session.client("qbusiness", REGION, verify=False)
     return amazon_q
 
 

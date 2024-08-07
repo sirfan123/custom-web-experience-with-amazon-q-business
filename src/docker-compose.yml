@@ -1,0 +1,11 @@
+version: '3.8'
+ 
+services:
+  aws-appconfig-agent:
+    image: public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.0.4348
+    ports:
+      - "2772:2772"
+    environment:
+      - AWS_REGION=us-east-1
+    volumes:
+      - ~/.aws:/root/.aws:ro

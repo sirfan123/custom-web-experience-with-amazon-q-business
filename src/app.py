@@ -4,7 +4,12 @@ import jwt
 import jwt.algorithms
 import streamlit as st  #all streamlit commands will be available through the "st" alias
 import utils
+import os 
 from streamlit_feedback import streamlit_feedback
+
+# Set the path to your certificate file
+#os.environ['SSL_CERT_FILE'] = r'C:\Users\samih.irfan\OneDrive - ConnectiveRx\Documents\Work\custom-web-experience-with-amazon-q-business\certs\cert.pem'
+#os.environ['SSL_KEY_FILE'] = r'C:\Users\samih.irfan\OneDrive - ConnectiveRx\Documents\Work\custom-web-experience-with-amazon-q-business\certs\key.pem'
 
 UTC=timezone.utc
 
@@ -30,15 +35,19 @@ def clear_chat_history():
 oauth2 = utils.configure_oauth_component()
 if "token" not in st.session_state:
     # If not, show authorize button
-    redirect_uri = f"https://{utils.OAUTH_CONFIG['ExternalDns']}/component/streamlit_oauth.authorize_button/index.html"
-    result = oauth2.authorize_button("Connect with Cognito",scope="openid", pkce="S256", redirect_uri=redirect_uri)
+    #redirect_uri = f"https://{utils.OAUTH_CONFIG['ExternalDns']}/component/streamlit_oauth.authorize_button/index.html"
+    redirect_uri = "https://localhost:8501/component/streamlit_oauth.authorize_button/index.html"
+    #redirect_uri = "https://localhost:8501"
+    result = oauth2.authorize_button("Connect with Cognito",scope="openid", pkce="S256", redirect_uri=redirect_uri,)
+   
     if result and "token" in result:
         # If authorization successful, save token in session state
+        print("PRINTING RESULT:", result)
         st.session_state.token = result.get("token")
         # Retrieve the Identity Center token
         st.session_state["idc_jwt_token"] = utils.get_iam_oidc_token(st.session_state.token["id_token"])
         st.session_state["idc_jwt_token"]["expires_at"] = datetime.now(tz=UTC) + \
-            timedelta(seconds=st.session_state["idc_jwt_token"]["expiresIn"])
+           timedelta(seconds=st.session_state["idc_jwt_token"]["expiresIn"])
         st.rerun()
 else:
     token = st.session_state["token"]
@@ -73,6 +82,7 @@ else:
 
     with col1:
         st.write("Welcome: ", user_email)
+        #st.write("Welcome: ", "samih")
     with col2:
         st.button("Clear Chat History", on_click=clear_chat_history)
 
