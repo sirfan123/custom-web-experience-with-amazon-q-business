@@ -1,3 +1,7 @@
+"""
+This repo is a fork from the AWS Q custom web ui.
+The main difference is this repo has been adjusted to run locally on your machine for local testing
+"""
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -129,8 +133,6 @@ else:
 
         Remember, You are a chatbot that will improve case managers' workflow within the organization as they interact with clients. Instead of searching through a lot of documentation to answer a client's question, they will simply ask you to find the answer to said question by searching your knowledge base and providing a concise response.
         """
-
-
 
     # If the last message is from the user, generate a response from the Q_backend
     if st.session_state.messages[-1]["role"] != "assistant":
