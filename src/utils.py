@@ -61,15 +61,7 @@ def refresh_iam_oidc_token(refresh_token):
     )
     return response
 
-
-def get_iam_oidc_token(id_token):
-    """
-    Get the IAM OIDC token using the ID token retrieved from Cognito
-    """
-
-    """
-    Start of local dev only code block-----------------------------------------------------------------------
-    """
+def assume_role_local(client_type):
     sts_client = boto3.client('sts', region_name=REGION)
     assumed_role = sts_client.assume_role(
         RoleArn='arn:aws:iam::084067650016:role/Qbusiness-customUI-EC2ServiceRole-WsCFbOBaOR6h',  
@@ -77,22 +69,23 @@ def get_iam_oidc_token(id_token):
     )
     credentials = assumed_role['Credentials']
 
-     # Create an SSO OIDC client using the assumed role credentials
+    # Create an SSO OIDC client using the assumed role credentials
     client = boto3.client(
-        "sso-oidc",
+        client_type,
         region_name=REGION,
         aws_access_key_id=credentials['AccessKeyId'],
         aws_secret_access_key=credentials['SecretAccessKey'],
         aws_session_token=credentials['SessionToken']
     )
-    """
-    End of local dev only code block-----------------------------------------------------------------------
-    """
+    return client
 
+def get_iam_oidc_token(id_token):
     """
-    Uncomment following line for deployment and comment local dev block
+    Get the IAM OIDC token using the ID token retrieved from Cognito
     """
-    #client = boto3.client("sso-oidc", region_name=REGION)
+    client = assume_role_local("sso-oidc")#Local client
+
+    #client = boto3.client("sso-oidc", region_name=REGION)#Deployment client
 
     response = client.create_token_with_iam(
         clientId=IDC_APPLICATION_ID,
@@ -106,37 +99,13 @@ def assume_role_with_token(iam_token):
     """
     Assume IAM role with the IAM OIDC idToken
     """
+    sts_client = assume_role_local("sts")#Local client
 
-    """
-    Start of local dev only code block-----------------------------------------------------------------------
-    """
-    sts_client = boto3.client('sts', region_name=REGION)
-    assumed_role = sts_client.assume_role(
-        RoleArn='arn:aws:iam::084067650016:role/Qbusiness-customUI-EC2ServiceRole-WsCFbOBaOR6h',
-        RoleSessionName="EC2ServiceRoleSession"
-    )
-    credentials = assumed_role['Credentials']
-
-     # Create an SSO OIDC client using the assumed role credentials
-    client = boto3.client(
-        "sts",
-        region_name=REGION,
-        aws_access_key_id=credentials['AccessKeyId'],
-        aws_secret_access_key=credentials['SecretAccessKey'],
-        aws_session_token=credentials['SessionToken']
-    )
-    """
-    End of local dev only code block-----------------------------------------------------------------------
-    """
-
-    """
-    Uncomment following line for deployment and comment local dev block
-    """
-    #sts_client = boto3.client("sts", region_name=REGION)
+    #sts_client = boto3.client("sts", region_name=REGION)#Deployed client
 
     decoded_token = jwt.decode(iam_token, options={"verify_signature": False})
    
-    response = client.assume_role(
+    response = sts_client.assume_role(
         RoleArn=IAM_ROLE,
         RoleSessionName="qapp",
         ProvidedContexts=[
@@ -164,7 +133,7 @@ def get_qclient(idc_id_token: str):
         aws_secret_access_key=st.session_state.aws_credentials["SecretAccessKey"],
         aws_session_token=st.session_state.aws_credentials["SessionToken"],
     )
-    amazon_q = session.client("qbusiness", REGION, verify=False)
+    amazon_q = session.client("qbusiness", REGION, verify=False) #Take out the verify=False flag if deploying 
     return amazon_q
 
 
