@@ -1,7 +1,7 @@
 bedrock-python-sdk
 bedrock-python-sdk.zip
 verification
-
+.vscode/
 __pycache__/
 .DS_Store
 
